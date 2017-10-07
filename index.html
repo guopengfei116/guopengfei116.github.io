@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>trex</title>
+    <style>
+        #canvasContainer {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+<div id="canvasContainer"></div>
+<script src="./js/util.js"></script>
+<script src="./js/getImage.js"></script>
+<script src="./js/horizon.js"></script>
+<script src="./js/sprite.js"></script>
+<script src="./js/text.js"></script>
+<script src="./js/obstacle.js"></script>
+<script src="./js/cloud.js"></script>
+<script>
+    (function () {
+
+        // 默认宽高
+        var GAME_WIDTH = 600;
+        var GAME_HEIGHT = 150;
+
+        // 画布准备工作
+        var cvsContainer = document.querySelector('#canvasContainer');
+        var cvs = document.createElement('canvas');
+        cvs.width = GAME_WIDTH;
+        cvs.height = GAME_HEIGHT;
+        cvsContainer.appendChild(cvs);
+        var ctx = cvs.getContext('2d');
+
+        var isGameOver = false;
+
+        // 游戏主函数
+        function main(role, imgs) {
+            isGameOver = false;
+
+            requestAnimationFrame(function () {
+
+                // 先清除画布
+                ctx.clearRect(0, 0, cvs.width, cvs.height);
+
+                // 碰撞检测
+                var trexLeft = role.trex.x,
+                    trexRight = trexLeft + role.trex.width,
+                    trexBottom = role.trex.y + role.trex.height;
+                var tempObstacle, tempObstacleLeft, tempObstacleRight, tempObstacleTop;
+
+                for (var i = 0; i < role.obstacle.length; i++) {
+                    tempObstacle = role.obstacle[i];
+                    tempObstacleLeft = tempObstacle.x;
+                    tempObstacleRight = tempObstacleLeft + tempObstacle.width;
+                    tempObstacleTop = tempObstacle.y;
+
+                    // 恐龙右侧大于障碍物左侧，并且障碍物右侧大于恐龙左侧，说明纵坐标有交集；
+                    // 如果在此基础上，横坐标也有交集说明发生碰撞
+                    // 为了更好的游戏体验，碰撞做了轻微容错处理。
+                    if (trexRight - tempObstacleLeft > 6 && tempObstacleRight - trexLeft > 6
+                            && trexBottom - tempObstacleTop > 6) {
+                        ctx.drawImage(imgs.text,
+                                0, 13, imgs.text.width, 11,
+                                (cvs.width - imgs.text.width) / 2, (cvs.height - imgs.text.height) / 2,
+                                imgs.text.width, imgs.text.height);
+
+                        role.trex.unbind();
+                        role.trex.index = 4;
+                        isGameOver = true;
+                    }
+                }
+
+                // 绘制游戏画面
+                for (var obj in role) {
+
+                    // 如果是数组，则遍历
+                    if (({}).toString.call(role[obj]) === '[object Array]') {
+                        role[obj].forEach(function (val) {
+                            val.draw();
+                            val.update();
+                        });
+                    }else {
+                        role[obj].draw();
+                        role[obj].update();
+                    }
+                }
+
+                // 游戏未结束，则继续
+                if (!isGameOver) {
+                    main(role, imgs);
+                }
+            });
+        }
+
+        // 开始游戏
+        function run(imgs) {
+            // 游戏所需的角色
+            var role = {
+                horizon : [],
+                obstacle : [],
+                cloud: [],
+                text: null,
+                trex: null
+            };
+
+            // 地平线
+            role.horizon.push(new Horizon(ctx, imgs.horizon));
+            role.horizon.push(new Horizon(ctx, imgs.horizon, imgs.horizon.width));
+
+            // 云
+            role.cloud.push(new Cloud(ctx, imgs.cloud));
+            role.cloud.push(new Cloud(ctx, imgs.cloud));
+            role.cloud.push(new Cloud(ctx, imgs.cloud));
+
+            // 文本
+            role.text = new Text(ctx, Date.now(), cvs.width, 0);
+
+            // 霸王龙，0到3帧图像是跑动，4和5是碰撞
+            role.trex = new Sprite(ctx, imgs.trex, 3, imgs.trex.width / 6, imgs.trex.height);
+
+            // 障碍物
+            var obstacleWidth = imgs.obstacle_large.width / 6;
+            var obstacleHeight = imgs.obstacle_large.height;
+            role.obstacle.push(new Obstacle(ctx, imgs.obstacle_large, 5, obstacleWidth, obstacleHeight));
+            role.obstacle.push(new Obstacle(ctx, imgs.obstacle_large, 5, obstacleWidth, obstacleHeight));
+
+            main(role, imgs);
+        }
+
+        // 游戏所需的图片资源地址
+        var imgPaths = {
+            game_icon : './imgs/error_offline.png',
+            horizon : './imgs/horizon.png',
+            trex : './imgs/trex.png',
+            cloud : './imgs/cloud.png',
+            obstacle_large : './imgs/obstacle_large_sprite.png',
+            obstacle_small : './imgs/obstacle_small_sprite.png',
+            restart : './imgs/restart.png',
+            text : './imgs/text_sprite.png'
+        };
+
+        // 获取图片资源，创建实例，绘制游戏画面
+        getImage(imgPaths, function (imgs) {
+
+            run(imgs);
+
+            // 游戏结束时，空格键重新开始游戏
+            document.addEventListener('keyup', function (e) {
+                if (isGameOver && e.keyCode == 32) {
+                    run(imgs);
+                }
+            });
+        });
+    }());
+</script>
+</body>
+</html>
